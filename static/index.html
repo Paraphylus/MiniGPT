@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MiniGPT Chat</title>
+  <style>
+    :root {
+      color-scheme: light;
+    }
+    body {
+      margin: 0;
+      font-family: Inter, Segoe UI, Arial, sans-serif;
+      background: #f3f4f6;
+      color: #111827;
+    }
+    main {
+      max-width: 860px;
+      margin: 24px auto;
+      padding: 0 14px;
+    }
+    .panel {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .top {
+      padding: 16px;
+      border-bottom: 1px solid #e5e7eb;
+      background: #f9fafb;
+    }
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .subtitle {
+      margin: 6px 0 0;
+      font-size: 13px;
+      line-height: 1.45;
+      color: #4b5563;
+    }
+    .chat {
+      min-height: 360px;
+      max-height: 58vh;
+      overflow: auto;
+      padding: 16px;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .msg {
+      max-width: 88%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      white-space: pre-wrap;
+      line-height: 1.45;
+      font-size: 14px;
+      border: 1px solid #e5e7eb;
+    }
+    .msg.user {
+      margin-left: auto;
+      background: #eef2ff;
+      border-color: #c7d2fe;
+    }
+    .msg.bot {
+      margin-right: auto;
+      background: #f9fafb;
+    }
+    .msg.system {
+      max-width: 100%;
+      background: #ecfeff;
+      border-color: #a5f3fc;
+      color: #164e63;
+    }
+    form {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 12px;
+      border-top: 1px solid #e5e7eb;
+      background: #f9fafb;
+    }
+    input {
+      padding: 10px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    #prompt {
+      flex: 1 1 420px;
+      min-width: 220px;
+    }
+    #maxTokens {
+      width: 110px;
+    }
+    button {
+      padding: 10px 14px;
+      border: 0;
+      border-radius: 8px;
+      background: #111827;
+      color: white;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+    #metrics {
+      padding: 0 12px 12px;
+      font-size: 13px;
+      color: #4b5563;
+    }
+    .label {
+      font-size: 12px;
+      color: #6b7280;
+      align-self: center;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="panel">
+      <div class="top">
+        <h1>MiniGPT Shakespeare Chat</h1>
+        <p class="subtitle">This model is trained on Tiny Shakespeare text. Start with a character cue like "ROMEO:" or ask for a short dramatic scene.</p>
+      </div>
+      <div id="chat" class="chat"></div>
+      <form id="form">
+        <input id="prompt" autocomplete="off" value="ROMEO:" placeholder="Try: JULIET:">
+        <span class="label">Chars</span>
+        <input id="maxTokens" type="number" min="40" max="500" step="10" value="250">
+        <button id="sendBtn">Send</button>
+      </form>
+      <div id="metrics"></div>
+    </section>
+  </main>
+  <script>
+    const form = document.getElementById("form");
+    const promptInput = document.getElementById("prompt");
+    const maxTokensInput = document.getElementById("maxTokens");
+    const sendBtn = document.getElementById("sendBtn");
+    const chat = document.getElementById("chat");
+    const metrics = document.getElementById("metrics");
+    const apiBase = location.protocol === "file:" ? "http://127.0.0.1:8000" : "";
+
+    function addMessage(role, text) {
+      const el = document.createElement("div");
+      el.className = `msg ${role}`;
+      el.textContent = text;
+      chat.appendChild(el);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    addMessage("system", "How to use: enter a prompt and click Send. Higher Chars gives longer output but may take longer.");
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const prompt = promptInput.value.trim();
+      const maxNewTokens = Number(maxTokensInput.value) || 250;
+
+      if (!prompt) {
+        addMessage("system", "Prompt is required.");
+        return;
+      }
+
+      addMessage("user", prompt);
+      addMessage("bot", "Generating...");
+      metrics.textContent = "";
+      sendBtn.disabled = true;
+
+      try {
+        const response = await fetch(`${apiBase}/chat`, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({prompt, max_new_tokens: maxNewTokens})
+        });
+        const data = await response.json();
+        const lastMessage = chat.lastElementChild;
+
+        if (!response.ok) {
+          lastMessage.textContent = data.detail || "Something went wrong.";
+          return;
+        }
+
+        lastMessage.textContent = data.text;
+        metrics.textContent = `latency: ${data.metrics.latency_ms} ms | chars/sec: ${data.metrics.chars_per_second} | output chars: ${data.metrics.generated_chars} | device: ${data.metrics.device} | requests: ${data.metrics.request_count}`;
+      } catch {
+        const lastMessage = chat.lastElementChild;
+        lastMessage.textContent = "Could not reach server. Start API with: uvicorn app:app --host 0.0.0.0 --port 8000";
+      } finally {
+        sendBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

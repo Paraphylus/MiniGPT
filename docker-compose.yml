@@ -1,0 +1,7 @@
+services:
+  minigpt:
+    build: .
+    container_name: minigpt
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
