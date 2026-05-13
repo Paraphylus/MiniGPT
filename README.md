@@ -1,6 +1,6 @@
 # MiniGPT 3
 
-This is a small character-level Transformer project trained on the Tiny Shakespeare dataset.
+This is a small character-level Transformer LLM project made from scratch in pyTorch and trained on the Tiny Shakespeare dataset.
 
 It includes:
 - model code (`minigpt.py`)
@@ -8,7 +8,7 @@ It includes:
 - generation/inference script (`generate.py`)
 - a simple FastAPI chat app (`app.py` + `static/index.html`)
 
-The app runs on CPU by default and works well for local experimentation.
+The app runs on CPU by default and works well for local experimentation(all recorded metrics are from an i7 12th gen CPU only).
 
 ## Performance Snapshot
 
