@@ -33,23 +33,27 @@ class MiniGPT(nn.Module):
         super().__init__()
         self.token_emb = nn.Embedding(vocab_size, d_model)
         self.pos_emb = nn.Embedding(1024, d_model)
+        self.register_buffer(
+            "causal_mask",
+            torch.triu(torch.ones(1024, 1024), diagonal=1).bool(),
+            persistent=False,
+        )
         self.layers = nn.ModuleList(
             [DecoderBlock(nhead, d_model) for _ in range(num_layers)]
         )
         self.ln_f = nn.LayerNorm(d_model)
         self.head = nn.Linear(d_model, vocab_size, bias=False)
 
-    def forward(self, idx):
+    def forward(self, idx, return_last_logits=False):
         _, t = idx.shape
         pos = torch.arange(t, device=idx.device)
         x = self.token_emb(idx) + self.pos_emb(pos)
-
-        attention_mask = torch.triu(
-            torch.ones(t, t, device=idx.device), diagonal=1
-        ).bool()
+        attention_mask = self.causal_mask[:t, :t]
 
         for layer in self.layers:
             x = layer(x, attention_mask)
 
         x = self.ln_f(x)
+        if return_last_logits:
+            x = x[:, -1:, :]
         return self.head(x)

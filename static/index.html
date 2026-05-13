@@ -187,7 +187,8 @@
         }
 
         lastMessage.textContent = data.text;
-        metrics.textContent = `latency: ${data.metrics.latency_ms} ms | chars/sec: ${data.metrics.chars_per_second} | output chars: ${data.metrics.generated_chars} | device: ${data.metrics.device} | requests: ${data.metrics.request_count}`;
+        const latencySeconds = (data.metrics.latency_ms / 1000).toFixed(2);
+        metrics.textContent = `latency: ${latencySeconds} s | chars/sec: ${data.metrics.chars_per_second} | output chars: ${data.metrics.generated_chars} | device: ${data.metrics.device} | requests: ${data.metrics.request_count}`;
       } catch {
         const lastMessage = chat.lastElementChild;
         lastMessage.textContent = "Could not reach server. Start API with: uvicorn app:app --host 0.0.0.0 --port 8000";

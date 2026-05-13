@@ -25,7 +25,7 @@ def load_model(checkpoint_path="MiniGPT_Tiny_Shakespeare.pth", device=None):
     return model, stoi, itos, device
 
 
-@torch.no_grad()
+@torch.inference_mode()
 def generate_text(
     model,
     prompt,
@@ -37,23 +37,30 @@ def generate_text(
     top_k=40,
 ):
     started = time.perf_counter()
-    idx = torch.tensor([encode(prompt, stoi)], dtype=torch.long, device=device)
+    prompt_tokens = encode(prompt, stoi)
+    total_tokens = len(prompt_tokens) + max_new_tokens
+    idx = torch.empty((1, total_tokens), dtype=torch.long, device=device)
+    idx[0, : len(prompt_tokens)] = torch.tensor(
+        prompt_tokens, dtype=torch.long, device=device
+    )
     max_context = model.pos_emb.num_embeddings
     top_k = min(top_k, len(stoi))
 
+    current_length = len(prompt_tokens)
     for _ in range(max_new_tokens):
-        context = idx[:, -max_context:]
-        logits = model(context)
-        logits = logits[:, -1, :] / max(temperature, 0.01)
+        context = idx[:, max(0, current_length - max_context) : current_length]
+        logits = model(context, return_last_logits=True)
+        logits = logits[:, 0, :] / max(temperature, 0.01)
         probs = torch.softmax(logits, dim=-1)
         topk_probs, topk_idx = torch.topk(probs, top_k)
         next_token = topk_idx[
             torch.arange(topk_idx.size(0), device=device),
             torch.multinomial(topk_probs, 1).squeeze(1),
-        ].unsqueeze(1)
-        idx = torch.cat([idx, next_token], dim=1)
+        ]
+        idx[0, current_length] = next_token
+        current_length += 1
 
-    text = decode(idx[0].tolist(), itos)
+    text = decode(idx[0, :current_length].tolist(), itos)
     latency_ms = (time.perf_counter() - started) * 1000
     return text, {
         "latency_ms": round(latency_ms, 2),
